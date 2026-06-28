@@ -214,6 +214,9 @@
   /* date range + place */
   .daterow{display:flex;align-items:center;gap:10px;}
   .daterow input{flex:1;}
+  .timerow{display:flex;align-items:center;gap:8px;}
+  .timerow input{flex:1;}
+  .tdash{color:var(--muted);font-weight:700;flex:0 0 auto;}
   .dto{font-size:12px;color:var(--accent);font-weight:700;cursor:pointer;white-space:nowrap;flex:0 0 auto;}
   .placehint{font-size:12px;color:var(--muted);margin-top:6px;min-height:16px;}
   .placehint.ok{color:var(--vsichni);}
@@ -292,7 +295,12 @@
     </div>
     <div class="field">
       <label>Čas (nepovinné)</label>
-      <input id="fTime" type="time">
+      <div class="timerow">
+        <input id="fTime" type="time">
+        <span class="tdash">–</span>
+        <input id="fEndTime" type="time">
+      </div>
+      <div class="placehint" style="min-height:0">Stačí vyplnit jen začátek, nebo oboje (od–do).</div>
     </div>
     <div class="field">
       <label>Místo (nepovinné)</label>
@@ -413,7 +421,7 @@ async function initStore(){
     $("#syncStatus").textContent="Lokální režim (nesdílí se)";
   }
 }
-function normalize(r){return {id:r.id,title:r.title,date:r.date,end_date:r.end_date||"",time:r.time||"",members:r.members||[],note:r.note||"",photos:r.photos||[],stars:r.stars||0,place:r.place||"",lat:r.lat??null,lng:r.lng??null};}
+function normalize(r){return {id:r.id,title:r.title,date:r.date,end_date:r.end_date||"",time:r.time||"",end_time:r.end_time||"",members:r.members||[],note:r.note||"",photos:r.photos||[],stars:r.stars||0,place:r.place||"",lat:r.lat??null,lng:r.lng??null};}
 function loadLocal(){try{events=JSON.parse(localStorage.getItem("famcal_events")||"[]");}catch{events=[];}}
 function saveLocal(){localStorage.setItem("famcal_events",JSON.stringify(events));}
 async function reload(){
@@ -424,14 +432,14 @@ async function reload(){
 
 async function persistAdd(ev){
   if(online){
-    const {data,error}=await sb.from("aktivity").insert([{title:ev.title,date:ev.date,end_date:ev.end_date||null,time:ev.time,members:ev.members,note:ev.note,photos:ev.photos,stars:ev.stars||0,place:ev.place||null,lat:ev.lat,lng:ev.lng}]).select();
+    const {data,error}=await sb.from("aktivity").insert([{title:ev.title,date:ev.date,end_date:ev.end_date||null,time:ev.time,end_time:ev.end_time||null,members:ev.members,note:ev.note,photos:ev.photos,stars:ev.stars||0,place:ev.place||null,lat:ev.lat,lng:ev.lng}]).select();
     if(error){toast("Nepodařilo se uložit");return null;}
     return normalize(data[0]);
   }else{ev.id=Date.now();events.push(ev);saveLocal();return ev;}
 }
 async function persistUpdate(ev){
   if(online){
-    const {error}=await sb.from("aktivity").update({title:ev.title,date:ev.date,end_date:ev.end_date||null,time:ev.time,members:ev.members,note:ev.note,photos:ev.photos,stars:ev.stars||0,place:ev.place||null,lat:ev.lat,lng:ev.lng}).eq("id",ev.id);
+    const {error}=await sb.from("aktivity").update({title:ev.title,date:ev.date,end_date:ev.end_date||null,time:ev.time,end_time:ev.end_time||null,members:ev.members,note:ev.note,photos:ev.photos,stars:ev.stars||0,place:ev.place||null,lat:ev.lat,lng:ev.lng}).eq("id",ev.id);
     if(error){toast("Nepodařilo se upravit");return false;}
     return true;
   }else{const i=events.findIndex(e=>e.id===ev.id);events[i]=ev;saveLocal();return true;}
@@ -459,6 +467,11 @@ function rangeLabel(e){
   const d2=new Date(e.end_date);
   if(d.getMonth()===d2.getMonth())return `${d.getDate()}.–${d2.getDate()}. ${MONTHS[d2.getMonth()]}`;
   return `${d.getDate()}. ${MONTHS[d.getMonth()]} – ${d2.getDate()}. ${MONTHS[d2.getMonth()]}`;
+}
+// time "9:30–12:00" or "9:30" or ""
+function timeLabel(e){
+  if(!e.time)return "";
+  return e.end_time?`${e.time}–${e.end_time}`:e.time;
 }
 
 function render(){
@@ -621,7 +634,7 @@ function renderList(){
           <div class="t">${escapeHtml(e.title)}</div>
           <div class="meta">
             ${multi?`<span>📆 ${rangeLabel(e)}</span>`:''}
-            ${e.time?`<span>🕒 ${e.time}</span>`:''}
+            ${e.time?`<span>🕒 ${timeLabel(e)}</span>`:''}
             ${e.place?`<span class="place">📍 ${escapeHtml(e.place)}</span>`:''}
             ${e.members.map(id=>`<span class="who-tag" style="background:${M[id].soft};color:${M[id].raw}">${M[id].name}</span>`).join("")}
           </div>
@@ -657,7 +670,7 @@ function renderMemories(){
     const stars=e.stars||0;
     html+=`<div class="tl-item">
       <div class="tl-dot" style="background:${dotColor}"></div>
-      <div class="tl-date">${dateLabel}${e.time?` · ${e.time}`:''}</div>
+      <div class="tl-date">${dateLabel}${e.time?` · ${timeLabel(e)}`:''}</div>
       <div class="tl-card" data-id="${e.id}">
         ${ph.length?`<div class="tl-photos ${pcls}">${ph.map(p=>`<img src="${p}" class="lb-trigger">`).join("")}</div>`:''}
         <div class="tl-body">
@@ -723,9 +736,8 @@ function renderMap(){
     }).addTo(mapInstance);
     const bounds=[];
     placed.forEach(e=>{
-      const color=e.members.length===1?M[e.members[0]].raw:M.vsichni.raw;
       const marker=L.circleMarker([e.lat,e.lng],{
-        radius:9,fillColor:color,color:"#fff",weight:2,fillOpacity:.95
+        radius:10,fillColor:"#E8543C",color:"#fff",weight:2.5,fillOpacity:1
       }).addTo(mapInstance);
       const who=e.members.map(id=>M[id].name).join(", ");
       const thumb=(e.photos&&e.photos[0])?`<br><img src="${e.photos[0]}" style="width:100%;max-width:160px;border-radius:6px;margin-top:6px">`:"";
@@ -763,7 +775,7 @@ function openNew(date){
   editing=null;draftPhotos=[];
   draftMembers=me?[me]:[];
   $("#evTitle").textContent="Nová aktivita";
-  $("#fTitle").value="";$("#fDate").value=date||todayIso;$("#fTime").value="";$("#fNote").value="";
+  $("#fTitle").value="";$("#fDate").value=date||todayIso;$("#fTime").value="";$("#fEndTime").value="";$("#fNote").value="";
   $("#fPlace").value="";$("#fEndDate").value="";$("#endWrap").style.display="none";$("#dtoLabel").textContent="+ víc dní";
   $("#placeHint").textContent="";$("#placeHint").className="placehint";
   $("#delBtn").style.display="none";
@@ -775,7 +787,7 @@ function openEvent(e){
   if(!e)return;
   editing=e;draftPhotos=[...(e.photos||[])];draftMembers=[...e.members];
   $("#evTitle").textContent="Upravit aktivitu";
-  $("#fTitle").value=e.title;$("#fDate").value=e.date;$("#fTime").value=e.time||"";$("#fNote").value=e.note||"";
+  $("#fTitle").value=e.title;$("#fDate").value=e.date;$("#fTime").value=e.time||"";$("#fEndTime").value=e.end_time||"";$("#fNote").value=e.note||"";
   $("#fPlace").value=e.place||"";
   $("#placeHint").textContent=(e.lat!=null)?"📍 Uloženo na mapě":"";$("#placeHint").className="placehint"+(e.lat!=null?" ok":"");
   if(e.end_date&&e.end_date>e.date){$("#fEndDate").value=e.end_date;$("#endWrap").style.display="block";$("#dtoLabel").textContent="skrýt konec";}
@@ -867,8 +879,10 @@ async function saveEvent(){
     }
   }
 
+  const startTime=$("#fTime").value;
+  const endTime=startTime ? $("#fEndTime").value : "";
   const payload={
-    title,date,end_date,time:$("#fTime").value,
+    title,date,end_date,time:startTime,end_time:endTime,
     members:[...draftMembers],note:$("#fNote").value.trim(),photos:[...draftPhotos],
     stars: editing ? (editing.stars||0) : 0,
     place, lat, lng
