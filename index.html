@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Prázdninový kalendář 2026</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <style>
   :root{
     --bg:#FCFAF4; --ink:#2A2D2C; --muted:#6E726F; --line:#E6E2D6;
@@ -156,19 +157,17 @@
   .syncing{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;}
   .dotpulse{width:7px;height:7px;border-radius:50%;background:var(--vsichni);}
 
-  /* ---------- hero countdown ---------- */
+  /* ---------- hero (next event, quiet) ---------- */
   .hero{margin:12px 16px 0;}
   .hero-card{
-    background:linear-gradient(135deg,var(--tata),#2b3f3e);color:#fff;border-radius:var(--radius);
-    padding:16px 18px;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;
+    background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius);
+    padding:13px 16px;display:flex;align-items:center;gap:14px;position:relative;
   }
-  .hero-card.sun{background:linear-gradient(135deg,#E8543C,#d8843a);}
-  .hero-card .big-num{font-size:46px;font-weight:800;line-height:.9;letter-spacing:-2px;}
+  .hero-card .big-num{font-size:30px;font-weight:800;line-height:1;letter-spacing:-1px;color:var(--tata);flex:0 0 auto;min-width:34px;text-align:center;}
   .hero-card .hero-txt{flex:1;min-width:0;}
-  .hero-card .hero-lbl{font-size:12px;opacity:.85;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
-  .hero-card .hero-main{font-size:17px;font-weight:700;margin-top:2px;line-height:1.25;}
-  .hero-card .hero-sub{font-size:13px;opacity:.85;margin-top:3px;}
-  .hero-emoji{font-size:34px;flex:0 0 auto;}
+  .hero-card .hero-lbl{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+  .hero-card .hero-main{font-size:16px;font-weight:700;margin-top:1px;line-height:1.25;}
+  .hero-card .hero-sub{font-size:12px;color:var(--muted);margin-top:2px;}
 
   /* ---------- stats strip ---------- */
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 16px 0;}
@@ -212,6 +211,26 @@
   .lightbox img{max-width:100%;max-height:90vh;border-radius:10px;}
   .lightbox .lb-close{position:absolute;top:18px;right:20px;color:#fff;font-size:34px;background:none;border:none;}
 
+  /* date range + place */
+  .daterow{display:flex;align-items:center;gap:10px;}
+  .daterow input{flex:1;}
+  .dto{font-size:12px;color:var(--accent);font-weight:700;cursor:pointer;white-space:nowrap;flex:0 0 auto;}
+  .placehint{font-size:12px;color:var(--muted);margin-top:6px;min-height:16px;}
+  .placehint.ok{color:var(--vsichni);}
+  .placehint.err{color:var(--accent);}
+
+  /* multi-day pill in month grid */
+  .cell .ev.multi{border-left:3px solid rgba(255,255,255,.6);}
+  .acard .place,.tl-place{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:3px;}
+
+  /* map view */
+  #famMap{height:62vh;min-height:380px;border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;}
+  .map-empty{text-align:center;padding:50px 22px;color:var(--muted);}
+  .map-empty .big{font-size:40px;margin-bottom:10px;}
+  .map-legend{font-size:12px;color:var(--muted);margin-top:10px;text-align:center;}
+  .leaflet-popup-content{font-family:inherit;font-size:13px;margin:10px 12px;}
+  .leaflet-popup-content b{font-size:14px;}
+
   @media(min-width:560px){ body{padding-bottom:30px;} }
 </style>
 </head>
@@ -238,6 +257,7 @@
   <button id="vMonth" class="active">Měsíc</button>
   <button id="vList">Seznam</button>
   <button id="vMemories">Vzpomínky</button>
+  <button id="vMap">Mapa</button>
 </div>
 
 <div class="monthnav" id="monthnav">
@@ -261,11 +281,23 @@
     </div>
     <div class="field">
       <label>Datum</label>
-      <input id="fDate" type="date">
+      <div class="daterow">
+        <input id="fDate" type="date">
+        <span class="dto" id="dtoToggle" title="Přidat konec">→ <span id="dtoLabel">+ víc dní</span></span>
+      </div>
+      <div id="endWrap" style="display:none;margin-top:8px">
+        <label style="font-size:11px">Konec (vícedenní akce)</label>
+        <input id="fEndDate" type="date">
+      </div>
     </div>
     <div class="field">
       <label>Čas (nepovinné)</label>
       <input id="fTime" type="time">
+    </div>
+    <div class="field">
+      <label>Místo (nepovinné)</label>
+      <input id="fPlace" placeholder="Např. Dolní Poustevna" autocomplete="off">
+      <div class="placehint" id="placeHint"></div>
     </div>
     <div class="field">
       <label>Koho se to týká</label>
@@ -310,6 +342,7 @@
   <img id="lbImg" src="">
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================================================
@@ -380,7 +413,7 @@ async function initStore(){
     $("#syncStatus").textContent="Lokální režim (nesdílí se)";
   }
 }
-function normalize(r){return {id:r.id,title:r.title,date:r.date,time:r.time||"",members:r.members||[],note:r.note||"",photos:r.photos||[],stars:r.stars||0};}
+function normalize(r){return {id:r.id,title:r.title,date:r.date,end_date:r.end_date||"",time:r.time||"",members:r.members||[],note:r.note||"",photos:r.photos||[],stars:r.stars||0,place:r.place||"",lat:r.lat??null,lng:r.lng??null};}
 function loadLocal(){try{events=JSON.parse(localStorage.getItem("famcal_events")||"[]");}catch{events=[];}}
 function saveLocal(){localStorage.setItem("famcal_events",JSON.stringify(events));}
 async function reload(){
@@ -391,14 +424,14 @@ async function reload(){
 
 async function persistAdd(ev){
   if(online){
-    const {data,error}=await sb.from("aktivity").insert([{title:ev.title,date:ev.date,time:ev.time,members:ev.members,note:ev.note,photos:ev.photos,stars:ev.stars||0}]).select();
+    const {data,error}=await sb.from("aktivity").insert([{title:ev.title,date:ev.date,end_date:ev.end_date||null,time:ev.time,members:ev.members,note:ev.note,photos:ev.photos,stars:ev.stars||0,place:ev.place||null,lat:ev.lat,lng:ev.lng}]).select();
     if(error){toast("Nepodařilo se uložit");return null;}
     return normalize(data[0]);
   }else{ev.id=Date.now();events.push(ev);saveLocal();return ev;}
 }
 async function persistUpdate(ev){
   if(online){
-    const {error}=await sb.from("aktivity").update({title:ev.title,date:ev.date,time:ev.time,members:ev.members,note:ev.note,photos:ev.photos,stars:ev.stars||0}).eq("id",ev.id);
+    const {error}=await sb.from("aktivity").update({title:ev.title,date:ev.date,end_date:ev.end_date||null,time:ev.time,members:ev.members,note:ev.note,photos:ev.photos,stars:ev.stars||0,place:ev.place||null,lat:ev.lat,lng:ev.lng}).eq("id",ev.id);
     if(error){toast("Nepodařilo se upravit");return false;}
     return true;
   }else{const i=events.findIndex(e=>e.id===ev.id);events[i]=ev;saveLocal();return true;}
@@ -414,15 +447,29 @@ async function persistDelete(id){
 
 /* ---------- rendering ---------- */
 function visibleEvents(){return filter==="all"?events:events.filter(e=>e.members.includes(filter));}
+// covers a given ISO date? (handles multi-day end_date ranges)
+function eventOnDate(e,date){
+  if(!e.end_date||e.end_date<=e.date)return e.date===date;
+  return date>=e.date && date<=e.end_date;
+}
+// label like "1.–4. července" or "3. července"
+function rangeLabel(e){
+  const d=new Date(e.date);
+  if(!e.end_date||e.end_date<=e.date)return `${d.getDate()}. ${MONTHS[d.getMonth()]}`;
+  const d2=new Date(e.end_date);
+  if(d.getMonth()===d2.getMonth())return `${d.getDate()}.–${d2.getDate()}. ${MONTHS[d2.getMonth()]}`;
+  return `${d.getDate()}. ${MONTHS[d.getMonth()]} – ${d2.getDate()}. ${MONTHS[d2.getMonth()]}`;
+}
 
 function render(){
   renderHero();
   renderStats();
   $("#monthLabel").textContent=`${MONTHS[cur.getMonth()]} ${cur.getFullYear()}`;
-  $("#monthnav").style.display = view==="memories" ? "none" : "flex";
+  $("#monthnav").style.display = (view==="memories"||view==="map") ? "none" : "flex";
   if(view==="month")renderMonth();
   else if(view==="list")renderList();
-  else renderMemories();
+  else if(view==="memories")renderMemories();
+  else renderMap();
 }
 
 /* ---------- hero countdown ---------- */
@@ -445,35 +492,32 @@ function renderHero(){
     const next=upcoming[0];
     const dd=daysTo(next.date);
     const whoTags=next.members.map(id=>M[id].name).join(", ");
-    const when=dd===0?"Dnes!":dd===1?"Zítra":`Za ${dd} ${dnText(dd)}`;
-    html=`<div class="hero-card ${inSummer?'sun':''}">
-      <div class="big-num">${dd===0?'🎉':dd}</div>
+    const when=dd===0?"Dnes":dd===1?"Zítra":`Za ${dd} ${dnText(dd)}`;
+    html=`<div class="hero-card">
+      <div class="big-num">${dd===0?'•':dd}</div>
       <div class="hero-txt">
         <div class="hero-lbl">Další akce · ${when}</div>
         <div class="hero-main">${escapeHtml(next.title)}</div>
         <div class="hero-sub">${whoTags}</div>
       </div>
-      <div class="hero-emoji">${inSummer?'🏖️':'📅'}</div>
     </div>`;
   }else if(todayIso<PRAZDNINY_START){
     const dd=daysTo(PRAZDNINY_START);
-    html=`<div class="hero-card sun">
+    html=`<div class="hero-card">
       <div class="big-num">${dd}</div>
       <div class="hero-txt">
         <div class="hero-lbl">Odpočet</div>
         <div class="hero-main">Do prázdnin zbývá ${dd} ${dnText(dd)}</div>
-        <div class="hero-sub">Naplánujte první akci! Klepni na +</div>
+        <div class="hero-sub">Naplánuj první akci tlačítkem +</div>
       </div>
-      <div class="hero-emoji">🏖️</div>
     </div>`;
   }else{
-    html=`<div class="hero-card ${inSummer?'sun':''}">
+    html=`<div class="hero-card">
       <div class="hero-txt">
         <div class="hero-lbl">${inSummer?'Užíváme léto':'Žádné nadcházející akce'}</div>
         <div class="hero-main">Co podniknete dál?</div>
-        <div class="hero-sub">Přidej aktivitu přes +</div>
+        <div class="hero-sub">Přidej aktivitu tlačítkem +</div>
       </div>
-      <div class="hero-emoji">${inSummer?'☀️':'✨'}</div>
     </div>`;
   }
   el.innerHTML=html;
@@ -518,7 +562,7 @@ function renderMonth(){
     const dow=new Date(y,mo,d).getDay();
     const wknd=dow===0||dow===6;
     const hol=HOLIDAYS[date];
-    const dayEvs=evs.filter(e=>e.date===date).sort((a,b)=>(a.time||"99").localeCompare(b.time||"99"));
+    const dayEvs=evs.filter(e=>eventOnDate(e,date)).sort((a,b)=>(a.time||"99").localeCompare(b.time||"99"));
     let cls="cell";
     if(date===todayIso)cls+=" today";
     if(hol)cls+=" holiday";else if(wknd)cls+=" weekend";
@@ -526,9 +570,10 @@ function renderMonth(){
     html+=`<span class="dn">${d}</span>`;
     if(hol)html+=`<span class="holtag" title="${hol}">svátek</span>`;
     dayEvs.slice(0,3).forEach(e=>{
+      const multi=e.end_date&&e.end_date>e.date;
       const col=e.members.length===1?M[e.members[0]].color:(e.members.includes("vsichni")?M.vsichni.color:"linear-gradient(90deg,"+e.members.map(id=>M[id].raw).join(",")+")");
       const bg=e.members.length>1&&!e.members.includes("vsichni")?`background:linear-gradient(90deg,${e.members.map(id=>M[id].raw).join(",")})`:`background:${col}`;
-      html+=`<div class="ev" style="${bg}" data-id="${e.id}">${e.photos&&e.photos.length?'<span class="pic">▣</span>':''}${escapeHtml(e.title)}</div>`;
+      html+=`<div class="ev ${multi?'multi':''}" style="${bg}" data-id="${e.id}">${e.photos&&e.photos.length?'<span class="pic">▣</span>':''}${escapeHtml(e.title)}</div>`;
     });
     if(dayEvs.length>3)html+=`<span class="more">+${dayEvs.length-3} dalších</span>`;
     html+=`</div>`;
@@ -551,7 +596,7 @@ function renderList(){
   let groups=[];
   for(let d=1;d<=days;d++){
     const date=iso(new Date(y,mo,d));
-    const dayEvs=evs.filter(e=>e.date===date).sort((a,b)=>(a.time||"99").localeCompare(b.time||"99"));
+    const dayEvs=evs.filter(e=>eventOnDate(e,date)).sort((a,b)=>(a.time||"99").localeCompare(b.time||"99"));
     if(dayEvs.length)groups.push({date,d,evs:dayEvs,dow:new Date(y,mo,d).getDay()});
   }
   if(!groups.length){
@@ -569,12 +614,15 @@ function renderList(){
     </div>`;
     g.evs.forEach(e=>{
       const barColor=e.members.length===1?M[e.members[0]].raw:M.vsichni.raw;
+      const multi=e.end_date&&e.end_date>e.date;
       html+=`<div class="acard" data-id="${e.id}">
         <div class="bar" style="background:${barColor}"></div>
         <div class="body">
           <div class="t">${escapeHtml(e.title)}</div>
           <div class="meta">
+            ${multi?`<span>📆 ${rangeLabel(e)}</span>`:''}
             ${e.time?`<span>🕒 ${e.time}</span>`:''}
+            ${e.place?`<span class="place">📍 ${escapeHtml(e.place)}</span>`:''}
             ${e.members.map(id=>`<span class="who-tag" style="background:${M[id].soft};color:${M[id].raw}">${M[id].name}</span>`).join("")}
           </div>
           ${e.note?`<div class="note">${escapeHtml(e.note)}</div>`:''}
@@ -602,8 +650,7 @@ function renderMemories(){
   }
   let html='<div class="timeline"><div class="tl-line"></div>';
   evs.forEach(e=>{
-    const d=new Date(e.date);
-    const dateLabel=`${d.getDate()}. ${MONTHS[d.getMonth()]}`;
+    const dateLabel=rangeLabel(e);
     const dotColor=e.members.length===1?M[e.members[0]].raw:M.vsichni.raw;
     const ph=(e.photos||[]).slice(0,4);
     const pcls="p"+(ph.length||1);
@@ -616,6 +663,7 @@ function renderMemories(){
         <div class="tl-body">
           <div class="tl-title">${escapeHtml(e.title)}</div>
           <div class="tl-meta">
+            ${e.place?`<span class="tl-place">📍 ${escapeHtml(e.place)}</span>`:''}
             ${e.members.map(id=>`<span class="tl-tag" style="background:${M[id].soft};color:${M[id].raw}">${M[id].name}</span>`).join("")}
           </div>
           ${e.note?`<div class="tl-note">${escapeHtml(e.note)}</div>`:''}
@@ -655,6 +703,39 @@ function renderMemories(){
 }
 
 function openLightbox(src){$("#lbImg").src=src;$("#lightbox").classList.add("open");}
+
+/* ---------- map view ---------- */
+let mapInstance=null;
+function renderMap(){
+  const placed=visibleEvents().filter(e=>e.lat!=null&&e.lng!=null);
+  if(!placed.length){
+    $("#main").innerHTML=`<div class="map-empty"><div class="big">🗺️</div>Zatím žádná místa na mapě.<br>Přidej k aktivitě <b>Místo</b> (např. „Dolní Poustevna") a objeví se tady.</div>`;
+    mapInstance=null;
+    return;
+  }
+  $("#main").innerHTML=`<div id="famMap"></div><div class="map-legend">📍 Místa, kde jste letos byli · ${placed.length}</div>`;
+  // Leaflet needs the container in DOM; init after paint
+  setTimeout(()=>{
+    if(typeof L==="undefined"){$("#famMap").innerHTML='<div class="map-empty">Mapa se nenačetla — zkontroluj připojení k internetu.</div>';return;}
+    mapInstance=L.map("famMap",{scrollWheelZoom:false});
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+      attribution:'© OpenStreetMap',maxZoom:18
+    }).addTo(mapInstance);
+    const bounds=[];
+    placed.forEach(e=>{
+      const color=e.members.length===1?M[e.members[0]].raw:M.vsichni.raw;
+      const marker=L.circleMarker([e.lat,e.lng],{
+        radius:9,fillColor:color,color:"#fff",weight:2,fillOpacity:.95
+      }).addTo(mapInstance);
+      const who=e.members.map(id=>M[id].name).join(", ");
+      const thumb=(e.photos&&e.photos[0])?`<br><img src="${e.photos[0]}" style="width:100%;max-width:160px;border-radius:6px;margin-top:6px">`:"";
+      marker.bindPopup(`<b>${escapeHtml(e.title)}</b><br>${rangeLabel(e)} · ${escapeHtml(e.place||"")}<br><span style="color:#888">${who}</span>${thumb}`);
+      bounds.push([e.lat,e.lng]);
+    });
+    if(bounds.length===1)mapInstance.setView(bounds[0],12);
+    else mapInstance.fitBounds(bounds,{padding:[40,40],maxZoom:13});
+  },60);
+}
 function escapeHtml(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 
 /* ---------- filters ---------- */
@@ -683,6 +764,8 @@ function openNew(date){
   draftMembers=me?[me]:[];
   $("#evTitle").textContent="Nová aktivita";
   $("#fTitle").value="";$("#fDate").value=date||todayIso;$("#fTime").value="";$("#fNote").value="";
+  $("#fPlace").value="";$("#fEndDate").value="";$("#endWrap").style.display="none";$("#dtoLabel").textContent="+ víc dní";
+  $("#placeHint").textContent="";$("#placeHint").className="placehint";
   $("#delBtn").style.display="none";
   buildWhoPick();renderPhotos();
   $("#evOverlay").classList.add("open");
@@ -693,6 +776,10 @@ function openEvent(e){
   editing=e;draftPhotos=[...(e.photos||[])];draftMembers=[...e.members];
   $("#evTitle").textContent="Upravit aktivitu";
   $("#fTitle").value=e.title;$("#fDate").value=e.date;$("#fTime").value=e.time||"";$("#fNote").value=e.note||"";
+  $("#fPlace").value=e.place||"";
+  $("#placeHint").textContent=(e.lat!=null)?"📍 Uloženo na mapě":"";$("#placeHint").className="placehint"+(e.lat!=null?" ok":"");
+  if(e.end_date&&e.end_date>e.date){$("#fEndDate").value=e.end_date;$("#endWrap").style.display="block";$("#dtoLabel").textContent="skrýt konec";}
+  else{$("#fEndDate").value="";$("#endWrap").style.display="none";$("#dtoLabel").textContent="+ víc dní";}
   $("#delBtn").style.display="block";
   buildWhoPick();renderPhotos();
   $("#evOverlay").classList.add("open");
@@ -749,14 +836,42 @@ function compress(file){
   });
 }
 
+// geocode place name -> {lat,lng} via OpenStreetMap Nominatim (free, no key)
+async function geocode(q){
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`,{headers:{"Accept-Language":"cs"}});
+    const j=await r.json();
+    if(j&&j.length)return {lat:parseFloat(j[0].lat),lng:parseFloat(j[0].lon)};
+  }catch(e){console.error("geocode",e);}
+  return null;
+}
+
 async function saveEvent(){
   const title=$("#fTitle").value.trim();
   if(!title){toast("Napiš název aktivity");return;}
   if(!draftMembers.length){toast("Vyber, koho se týká");return;}
+  const date=$("#fDate").value;
+  let end_date=$("#endWrap").style.display!=="none" ? $("#fEndDate").value : "";
+  if(end_date&&end_date<date){toast("Konec nemůže být před začátkem");return;}
+  const place=$("#fPlace").value.trim();
+
+  // resolve coordinates: reuse if place unchanged, else geocode
+  let lat=null,lng=null;
+  if(place){
+    if(editing&&editing.place===place&&editing.lat!=null){lat=editing.lat;lng=editing.lng;}
+    else{
+      $("#saveBtn").textContent="Hledám místo…";
+      const g=await geocode(place);
+      if(g){lat=g.lat;lng=g.lng;}
+      else toast("Místo se nenašlo, uložím bez mapy");
+    }
+  }
+
   const payload={
-    title,date:$("#fDate").value,time:$("#fTime").value,
+    title,date,end_date,time:$("#fTime").value,
     members:[...draftMembers],note:$("#fNote").value.trim(),photos:[...draftPhotos],
-    stars: editing ? (editing.stars||0) : 0
+    stars: editing ? (editing.stars||0) : 0,
+    place, lat, lng
   };
   $("#saveBtn").textContent="Ukládám…";
   if(editing){
@@ -807,7 +922,28 @@ $("#nextM").onclick=()=>{cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);rend
 $("#vMonth").onclick=()=>{view="month";setActiveView("vMonth");render();};
 $("#vList").onclick=()=>{view="list";setActiveView("vList");render();};
 $("#vMemories").onclick=()=>{view="memories";setActiveView("vMemories");render();};
-function setActiveView(id){["vMonth","vList","vMemories"].forEach(v=>$("#"+v).classList.toggle("active",v===id));}
+$("#vMap").onclick=()=>{view="map";setActiveView("vMap");render();};
+function setActiveView(id){["vMonth","vList","vMemories","vMap"].forEach(v=>$("#"+v).classList.toggle("active",v===id));}
+
+// date range toggle
+$("#dtoToggle").onclick=()=>{
+  const w=$("#endWrap");
+  if(w.style.display==="none"){
+    w.style.display="block";$("#dtoLabel").textContent="skrýt konec";
+    if(!$("#fEndDate").value)$("#fEndDate").value=$("#fDate").value;
+  }else{
+    w.style.display="none";$("#fEndDate").value="";$("#dtoLabel").textContent="+ víc dní";
+  }
+};
+// live place hint while typing (debounced)
+let placeTimer=null;
+$("#fPlace").addEventListener("input",()=>{
+  clearTimeout(placeTimer);
+  const v=$("#fPlace").value.trim();
+  const h=$("#placeHint");
+  if(!v){h.textContent="";h.className="placehint";return;}
+  h.textContent="Místo se ověří při uložení…";h.className="placehint";
+});
 $("#lbClose").onclick=()=>$("#lightbox").classList.remove("open");
 $("#lightbox").onclick=e=>{if(e.target.id==="lightbox")$("#lightbox").classList.remove("open");};
 $("#meBtn").onclick=()=>{buildMePick();$("#whoOverlay").classList.add("open");};
