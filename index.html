@@ -15,6 +15,7 @@
     --viny:#D98A1F; --viny-soft:#F8ECD6;
     --vsichni:#5B8A3C; --vsichni-soft:#E8F0DF;
     --radius:14px; --radius-sm:9px;
+    --maxw:640px;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -55,7 +56,7 @@
   .navbtn{width:34px;height:34px;border-radius:50%;background:var(--card);border:1px solid var(--line);font-size:18px;display:flex;align-items:center;justify-content:center;}
 
   /* ---------- views ---------- */
-  .viewtoggle{display:flex;gap:0;background:var(--card);border:1px solid var(--line);border-radius:30px;padding:3px;margin:0 16px;}
+  .viewtoggle{display:flex;gap:0;background:var(--card);border:1px solid var(--line);border-radius:30px;padding:3px;}
   .viewtoggle button{flex:1;padding:7px;font-size:13px;font-weight:600;border-radius:30px;color:var(--muted);}
   .viewtoggle button.active{background:var(--ink);color:#fff;}
 
@@ -158,7 +159,7 @@
   .dotpulse{width:7px;height:7px;border-radius:50%;background:var(--vsichni);}
 
   /* ---------- hero (next event, quiet) ---------- */
-  .hero{margin:12px 16px 0;}
+  .hero{margin-top:12px;}
   .hero-card{
     background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius);
     padding:13px 16px;display:flex;align-items:center;gap:14px;position:relative;
@@ -170,7 +171,7 @@
   .hero-card .hero-sub{font-size:12px;color:var(--muted);margin-top:2px;}
 
   /* ---------- stats strip ---------- */
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 16px 0;}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
   .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 6px;text-align:center;}
   .stat .sv{font-size:20px;font-weight:800;}
   .stat .sl{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:1px;text-transform:uppercase;letter-spacing:.2px;line-height:1.2;}
@@ -235,6 +236,15 @@
   .leaflet-popup-content b{font-size:14px;}
 
   @media(min-width:560px){ body{padding-bottom:30px;} }
+
+  /* ---------- fixed content width (Facebook-style centering) ---------- */
+  .brand{max-width:var(--maxw);margin-left:auto;margin-right:auto;}
+  .filters{max-width:var(--maxw);margin-left:auto;margin-right:auto;}
+  .viewtoggle{max-width:var(--maxw);margin-left:auto;margin-right:auto;}
+  .monthnav{max-width:var(--maxw);margin-left:auto;margin-right:auto;}
+  .hero{max-width:var(--maxw);margin-left:auto;margin-right:auto;}
+  #statsHost.stats{max-width:var(--maxw);margin-left:auto;margin-right:auto;}
+  main{max-width:var(--maxw);margin-left:auto;margin-right:auto;}
 </style>
 </head>
 <body>
