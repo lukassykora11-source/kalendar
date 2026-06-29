@@ -82,9 +82,9 @@
   .cell.full::after{content:"";position:absolute;left:5px;right:5px;bottom:0;height:14px;background:linear-gradient(to top,var(--card),transparent);pointer-events:none;}
   .cell.full.weekend::after{background:linear-gradient(to top,#FBF8F0,transparent);}
   .cell.full.holiday::after{background:linear-gradient(to top,var(--accent-soft),transparent);}
-  .cell .ev{font-size:11px;line-height:1.2;border-radius:6px;padding:3px 6px;color:#fff;font-weight:600;display:flex;align-items:flex-start;gap:3px;flex:0 0 auto;}
-  .cell .ev .pic{font-size:9px;opacity:.85;margin-top:1px;flex:0 0 auto;}
-  .cell .ev > span:last-child{flex:1;min-width:0;white-space:normal;word-break:normal;overflow-wrap:break-word;hyphens:none;}
+  .cell .ev{font-size:11px;line-height:1.25;border-radius:6px;padding:3px 6px;color:#fff;font-weight:600;display:flex;align-items:center;gap:3px;flex:0 0 auto;}
+  .cell .ev .pic{font-size:9px;opacity:.85;flex:0 0 auto;}
+  .cell .ev > span:last-child{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .cell .badge-count{position:absolute;top:4px;right:5px;font-size:9px;font-weight:800;color:#fff;background:var(--accent);border-radius:10px;padding:1px 6px;line-height:1.4;}
   .holtag{position:absolute;top:5px;right:5px;font-size:9px;color:var(--accent);font-weight:700;}
 
