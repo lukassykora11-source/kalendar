@@ -68,17 +68,23 @@
   .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
   .cell{
     background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);
-    min-height:96px;padding:6px;display:flex;flex-direction:column;gap:3px;position:relative;overflow:hidden;
+    min-height:120px;height:120px;padding:5px;display:flex;flex-direction:column;gap:3px;position:relative;overflow:hidden;
   }
   .cell.empty{background:transparent;border:none;}
   .cell.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
   .cell.weekend{background:#FBF8F0;}
   .cell.holiday{background:var(--accent-soft);}
-  .cell .dn{font-size:12px;font-weight:700;color:var(--muted);}
+  .cell .dn{font-size:12px;font-weight:700;color:var(--muted);flex:0 0 auto;}
   .cell.today .dn{color:var(--accent);}
-  .cell .ev{font-size:11px;line-height:1.25;border-radius:6px;padding:2px 5px;color:#fff;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:3px;}
-  .cell .ev .pic{font-size:9px;opacity:.85;}
-  .cell .more{font-size:10px;color:var(--muted);font-weight:600;}
+  .cell-events{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:3px;scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
+  .cell-events::-webkit-scrollbar{width:5px;}
+  .cell-events::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
+  .cell.full::after{content:"";position:absolute;left:5px;right:5px;bottom:0;height:14px;background:linear-gradient(to top,var(--card),transparent);pointer-events:none;}
+  .cell.full.weekend::after{background:linear-gradient(to top,#FBF8F0,transparent);}
+  .cell.full.holiday::after{background:linear-gradient(to top,var(--accent-soft),transparent);}
+  .cell .ev{font-size:11px;line-height:1.2;border-radius:6px;padding:3px 6px;color:#fff;font-weight:600;white-space:normal;word-break:keep-all;overflow-wrap:normal;display:flex;align-items:flex-start;gap:3px;flex:0 0 auto;}
+  .cell .ev .pic{font-size:9px;opacity:.85;margin-top:1px;}
+  .cell .badge-count{position:absolute;top:4px;right:5px;font-size:9px;font-weight:800;color:#fff;background:var(--accent);border-radius:10px;padding:1px 6px;line-height:1.4;}
   .holtag{position:absolute;top:5px;right:5px;font-size:9px;color:var(--accent);font-weight:700;}
 
   /* ---------- list (mobile-friendly agenda) ---------- */
@@ -94,12 +100,15 @@
   }
   .acard .bar{width:4px;border-radius:4px;flex:0 0 auto;}
   .acard .body{flex:1;min-width:0;}
-  .acard .t{font-size:15px;font-weight:700;margin-bottom:2px;}
+  .acard .t{font-size:15px;font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .multi-badge{font-size:11px;font-weight:700;color:var(--tata);background:var(--tata-soft);padding:2px 9px;border-radius:20px;}
   .acard .meta{font-size:12px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
   .acard .who-tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
   .acard .note{font-size:13px;color:#4A4D4C;margin-top:6px;white-space:pre-wrap;}
   .acard .photos{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
-  .acard .photos img{width:62px;height:62px;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
+  .acard .photos .lphoto{position:relative;width:62px;height:62px;cursor:pointer;overflow:hidden;border-radius:8px;}
+  .acard .photos img{width:62px;height:62px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block;}
+  .acard .photos .ph-more{position:absolute;inset:0;background:rgba(0,0,0,.5);color:#fff;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;border-radius:8px;}
   .empty-day{font-size:13px;color:var(--muted);font-style:italic;padding:4px 2px;}
 
   .agenda-empty{text-align:center;padding:50px 20px;color:var(--muted);}
@@ -406,7 +415,7 @@ const DOW=["Po","Út","St","Čt","Pá","So","Ne"];
 let events=[];            // {id,title,date,time,members:[],note,photos:[]}
 let filter="all";
 let view="month";
-let cur=new Date(2026,6,1);  // start at July (prázdniny)
+let cur=new Date(); cur.setDate(1); cur.setHours(0,0,0,0);  // current month
 let me=localStorage.getItem("famcal_me")||"";
 let editing=null;
 let draftPhotos=[];
@@ -602,16 +611,19 @@ function renderMonth(){
     let cls="cell";
     if(date===todayIso)cls+=" today";
     if(hol)cls+=" holiday";else if(wknd)cls+=" weekend";
+    if(dayEvs.length>=3)cls+=" full";
     html+=`<div class="${cls}" data-date="${date}">`;
     html+=`<span class="dn">${d}</span>`;
     if(hol)html+=`<span class="holtag" title="${hol}">svátek</span>`;
-    dayEvs.slice(0,3).forEach(e=>{
+    else if(dayEvs.length>2)html+=`<span class="badge-count">${dayEvs.length}</span>`;
+    html+=`<div class="cell-events">`;
+    dayEvs.forEach(e=>{
       const multi=e.end_date&&e.end_date>e.date;
       const col=e.members.length===1?M[e.members[0]].color:(e.members.includes("vsichni")?M.vsichni.color:"linear-gradient(90deg,"+e.members.map(id=>M[id].raw).join(",")+")");
       const bg=e.members.length>1&&!e.members.includes("vsichni")?`background:linear-gradient(90deg,${e.members.map(id=>M[id].raw).join(",")})`:`background:${col}`;
-      html+=`<div class="ev ${multi?'multi':''}" style="${bg}" data-id="${e.id}">${e.photos&&e.photos.length?'<span class="pic">▣</span>':''}${escapeHtml(e.title)}</div>`;
+      html+=`<div class="ev ${multi?'multi':''}" style="${bg}" data-id="${e.id}">${e.photos&&e.photos.length?'<span class="pic">▣</span>':''}<span>${escapeHtml(e.title)}</span></div>`;
     });
-    if(dayEvs.length>3)html+=`<span class="more">+${dayEvs.length-3} dalších</span>`;
+    html+=`</div>`;
     html+=`</div>`;
   }
   html+='</div>';
@@ -628,11 +640,18 @@ function renderMonth(){
 function renderList(){
   const y=cur.getFullYear(),mo=cur.getMonth();
   const days=new Date(y,mo+1,0).getDate();
+  const firstOfMonth=iso(new Date(y,mo,1));
+  const lastOfMonth=iso(new Date(y,mo,days));
   const evs=visibleEvents();
   let groups=[];
   for(let d=1;d<=days;d++){
     const date=iso(new Date(y,mo,d));
-    const dayEvs=evs.filter(e=>eventOnDate(e,date)).sort((a,b)=>(a.time||"99").localeCompare(b.time||"99"));
+    // a multi-day event appears ONCE: on its start day, or on the 1st of the month if it started earlier
+    const dayEvs=evs.filter(e=>{
+      if(!eventOnDate(e,date))return false;
+      const anchor = (e.date<firstOfMonth) ? firstOfMonth : e.date;
+      return anchor===date;
+    }).sort((a,b)=>(a.time||"99").localeCompare(b.time||"99"));
     if(dayEvs.length)groups.push({date,d,evs:dayEvs,dow:new Date(y,mo,d).getDay()});
   }
   if(!groups.length){
@@ -651,18 +670,18 @@ function renderList(){
     g.evs.forEach(e=>{
       const barColor=e.members.length===1?M[e.members[0]].raw:M.vsichni.raw;
       const multi=e.end_date&&e.end_date>e.date;
+      const np=(e.photos||[]).length;
       html+=`<div class="acard" data-id="${e.id}">
         <div class="bar" style="background:${barColor}"></div>
         <div class="body">
-          <div class="t">${escapeHtml(e.title)}</div>
+          <div class="t">${escapeHtml(e.title)}${multi?`<span class="multi-badge">${rangeLabel(e)}</span>`:''}</div>
           <div class="meta">
-            ${multi?`<span>📆 ${rangeLabel(e)}</span>`:''}
             ${e.time?`<span>🕒 ${timeLabel(e)}</span>`:''}
             ${e.place?`<span class="place">📍 ${escapeHtml(e.place)}</span>`:''}
             ${e.members.map(id=>`<span class="who-tag" style="background:${M[id].soft};color:${M[id].raw}">${M[id].name}</span>`).join("")}
           </div>
           ${e.note?`<div class="note">${escapeHtml(e.note)}</div>`:''}
-          ${e.photos&&e.photos.length?`<div class="photos">${e.photos.map(p=>`<img src="${p}">`).join("")}</div>`:''}
+          ${np?`<div class="photos">${(e.photos.slice(0,4)).map((p,i)=>`<div class="lphoto" data-id="${e.id}" data-idx="${i}"><img src="${p}">${(i===3&&np>4)?`<span class="ph-more">+${np-4}</span>`:''}</div>`).join("")}</div>`:''}
         </div>
       </div>`;
     });
@@ -670,6 +689,14 @@ function renderList(){
   });
   html+='</div>';
   $("#main").innerHTML=html;
+  // open photo gallery from list thumbnails
+  $("#main").querySelectorAll(".lphoto").forEach(ph=>{
+    ph.addEventListener("click",ev=>{
+      ev.stopPropagation();
+      const e=events.find(x=>String(x.id)===ph.dataset.id);
+      if(e&&e.photos&&e.photos.length)openLightbox(e.photos,+ph.dataset.idx);
+    });
+  });
   $("#main").querySelectorAll(".acard").forEach(c=>{
     c.addEventListener("click",()=>openEvent(events.find(e=>String(e.id)===c.dataset.id)));
   });
@@ -825,7 +852,7 @@ function openNew(date){
   draftMembers=me?[me]:[];
   $("#evTitle").textContent="Nová aktivita";
   $("#fTitle").value="";$("#fDate").value=date||todayIso;$("#fTime").value="";$("#fEndTime").value="";$("#fNote").value="";
-  $("#fPlace").value="";$("#fEndDate").value="";$("#endWrap").style.display="none";$("#dtoLabel").textContent="+ víc dní";
+  $("#fPlace").value="";$("#fEndDate").value="";$("#fEndDate").min=(date||todayIso);$("#endWrap").style.display="none";$("#dtoLabel").textContent="+ víc dní";
   $("#placeHint").textContent="";$("#placeHint").className="placehint";
   $("#delBtn").style.display="none";
   buildWhoPick();renderPhotos();
@@ -839,7 +866,7 @@ function openEvent(e){
   $("#fTitle").value=e.title;$("#fDate").value=e.date;$("#fTime").value=e.time||"";$("#fEndTime").value=e.end_time||"";$("#fNote").value=e.note||"";
   $("#fPlace").value=e.place||"";
   $("#placeHint").textContent=(e.lat!=null)?"📍 Uloženo na mapě":"";$("#placeHint").className="placehint"+(e.lat!=null?" ok":"");
-  if(e.end_date&&e.end_date>e.date){$("#fEndDate").value=e.end_date;$("#endWrap").style.display="block";$("#dtoLabel").textContent="skrýt konec";}
+  if(e.end_date&&e.end_date>e.date){$("#fEndDate").value=e.end_date;$("#fEndDate").min=e.date;$("#endWrap").style.display="block";$("#dtoLabel").textContent="skrýt konec";}
   else{$("#fEndDate").value="";$("#endWrap").style.display="none";$("#dtoLabel").textContent="+ víc dní";}
   $("#delBtn").style.display="block";
   buildWhoPick();renderPhotos();
@@ -993,11 +1020,20 @@ $("#dtoToggle").onclick=()=>{
   const w=$("#endWrap");
   if(w.style.display==="none"){
     w.style.display="block";$("#dtoLabel").textContent="skrýt konec";
-    if(!$("#fEndDate").value)$("#fEndDate").value=$("#fDate").value;
+    $("#fEndDate").min=$("#fDate").value;
+    if(!$("#fEndDate").value||$("#fEndDate").value<$("#fDate").value)$("#fEndDate").value=$("#fDate").value;
   }else{
     w.style.display="none";$("#fEndDate").value="";$("#dtoLabel").textContent="+ víc dní";
   }
 };
+// when start date changes, keep end date >= start
+$("#fDate").addEventListener("change",()=>{
+  const start=$("#fDate").value;
+  $("#fEndDate").min=start;
+  if($("#endWrap").style.display!=="none" && (!$("#fEndDate").value||$("#fEndDate").value<start)){
+    $("#fEndDate").value=start;
+  }
+});
 // live place hint while typing (debounced)
 let placeTimer=null;
 $("#fPlace").addEventListener("input",()=>{
